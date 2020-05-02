@@ -1,9 +1,9 @@
-use crate::ocr::{TargetMatrix, ReferenceMatrix};
+use crate::ocr::{ReferenceMatrix, TargetMatrix};
 
 #[derive(Default, Clone, Debug)]
 pub(crate) struct OCRResult {
     target: TargetMatrix,
-    reference: ReferenceMatrix,
+    pub(crate) reference: ReferenceMatrix,
     black_pixels: u32,
     white_pixels: u32,
     target_halo_pixels: u32,
@@ -21,5 +21,9 @@ impl OCRResult {
             refined_alignment: false,
             ..Default::default()
         }
+    }
+
+    pub(crate) fn get_character(&self) -> char {
+        self.reference.character
     }
 }

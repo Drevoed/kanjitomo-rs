@@ -1,14 +1,13 @@
 mod area;
 mod area_task;
 mod column;
-mod traits;
 
 pub use area::Area;
 pub use area_task::AreaTask;
 pub use column::Column;
 use sealed::*;
 
-pub(crate) struct Point {
+pub struct Point {
     pub x: u32,
     pub y: u32,
 }

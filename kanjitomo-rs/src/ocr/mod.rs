@@ -2,6 +2,11 @@ use image::math::Rect;
 
 mod ocr_result;
 mod ocr_task;
+mod ocr_manager;
+mod transform;
+
+pub(crate) use ocr_result::OCRResult;
+use std::collections::HashMap;
 
 const R_M_SERIAL_VERSION_UID: u64 = 3;
 const C_SERIAL_VERSION_UID: u64 = 2;
@@ -13,12 +18,12 @@ pub(crate) struct TargetMatrix {
     pixels: u32,
     halo: Vec<Vec<u8>>,
     char_index: u32,
-    transform: Transformation
+    transform: Transformation,
 }
 
 #[derive(Default, Clone, Debug)]
 pub(crate) struct ReferenceMatrix {
-    character: char,
+    pub(crate) character: char,
     matrix: Vec<u8>,
     pixels: u32,
     halo: Vec<Vec<u8>>,
@@ -26,6 +31,18 @@ pub(crate) struct ReferenceMatrix {
     font_name: String,
     components: Vec<Component>,
     transformations: Vec<Transformation>,
+}
+
+pub(crate) struct ReferenceMatrixCacheLoader {
+
+}
+
+pub(crate) struct ReferenceMatrixCache {
+    cache: HashMap<String, Vec<ReferenceMatrix>>
+}
+
+impl ReferenceMatrixCache {
+
 }
 
 #[derive(Default, Debug, Clone)]

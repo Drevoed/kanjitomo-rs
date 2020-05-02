@@ -1,11 +1,12 @@
 use crate::area::column::Column;
-use crate::area::traits::HasRectangle;
 use crate::area::Point;
+use crate::traits::HasRectangle;
 use image::imageops::ColorMap;
 use image::math::Rect;
 use image::ColorType;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
+use crate::traits::HasRectangle;
 
 #[derive(Debug, Clone)]
 pub struct Area {
@@ -25,6 +26,7 @@ impl HasRectangle for Area {
         self.rect
     }
 
+    #[inline(always)]
     fn get_midpoint(&self) -> Point {
         Point {
             x: self.rect.x + self.rect.width / 2,
