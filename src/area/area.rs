@@ -6,7 +6,6 @@ use image::math::Rect;
 use image::ColorType;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
-use crate::traits::HasRectangle;
 
 #[derive(Debug, Clone)]
 pub struct Area {

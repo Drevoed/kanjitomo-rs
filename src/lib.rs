@@ -23,11 +23,18 @@ pub enum Orientation {
     Horizontal
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum CharacterColor {
     Auto,
     BlackOnWhite,
     WhiteOnBlack
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum DictionaryType {
+    JapaneseDefault(String),
+    JapaneseNames(String),
+    Chinese(String)
 }
 
 #[derive(Debug)]

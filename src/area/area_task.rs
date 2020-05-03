@@ -47,7 +47,7 @@ where
         let mut subimages = vec![];
 
         for area in areas {
-            let cropped = crop(self.binary_image, area)
+
         }
 
         subimages
