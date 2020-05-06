@@ -4,13 +4,19 @@ mod error;
 mod ocr;
 mod traits;
 mod util;
-mod args;
+mod parameters;
 
 use crate::area::Point;
 use num_traits::Num;
 use image::math::Rect;
 use serde::{Serialize, Deserialize};
+use parameters::Parameters;
+use lazy_static::lazy_static;
 use crate::util::is_kanji;
+
+lazy_static! {
+    pub static ref PARAMETERS: Parameters = Default::default();
+}
 
 pub fn run_ocr(point: Point) {
 
@@ -92,5 +98,16 @@ impl Word {
             common,
             kanji_count
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::PARAMETERS;
+    use crate::parameters::Parameters;
+
+    #[test]
+    fn test_static_parameters() {
+        assert_eq!(*PARAMETERS, Parameters::default())
     }
 }

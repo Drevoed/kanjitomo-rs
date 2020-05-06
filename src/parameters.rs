@@ -2,8 +2,8 @@ use crate::{Orientation, CharacterColor, DictionaryType};
 use smart_default::SmartDefault;
 use image::Rgba;
 
-#[derive(Debug, SmartDefault)]
-pub struct Arguments {
+#[derive(Debug, SmartDefault, PartialEq)]
+pub struct Parameters {
    #[default = "data"]
    pub data_dir_name: String,
    #[default = "dictionary"]
@@ -74,7 +74,7 @@ mod tests {
 
    #[test]
    fn test_default_fonts() {
-      let args: Arguments = Default::default();
+      let args: Parameters = Default::default();
       assert_eq!(args.reference_fonts, vec!["MS Gothic", "SimSun"])
    }
 }

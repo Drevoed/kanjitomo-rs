@@ -1,32 +1,27 @@
 use imageproc::rect::Rect;
 use num_traits::Zero;
-use image::{
-    GenericImage, ImageBuffer, Pixel, Primitive, Rgb, RgbImage, Rgba, RgbaImage, SubImage,
-};
-use imgref::{ImgRef, ImgVec};
+use image::{GenericImage, ImageBuffer, Pixel, Primitive, Rgb, RgbImage, Rgba, RgbaImage, SubImage, GrayImage, Luma, GenericImageView, FromColor};
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+use bit::BitIndex;
+use palette::Srgb;
+use palette::named;
+use palette::encoding::pixel::Pixel as _;
 
 pub(crate) use char_util::*;
-use image::imageops::FilterType;
+use image::imageops::{FilterType, dither, BiLevel};
 use crate::error::KanjitomoError;
 use image::math::utils::clamp;
 use imageproc::drawing::draw_filled_rect_mut;
+use crate::PARAMETERS;
+use nalgebra::{MatrixN, dimension::U32, DMatrix};
+use crate::util::matrix_util::is_bit_set;
+use image::buffer::ConvertBuffer;
 
-const UNSHARP_SIGMA: f32 = 4.0;
-const UNSHARP_THRESHOLD: i32 = 2;
-
-pub(crate) struct RGBAColors;
-
-impl RGBAColors {
-    const WHITE: Rgba<u8> = Rgba([255, 255, 255, 255]);
-    const BLACK: Rgba<u8> = Rgba([0, 0, 0, 255]);
-}
-
-pub(crate) fn contains_pixel(rgb: u32, black_threshold: u32) -> bool {
-    let red = ((rgb & 0x00ff0000) >> 16) < black_threshold;
-    let green = ((rgb & 0x0000ff00) >> 8) < black_threshold;
-    let blue = (rgb & 0x000000ff) < black_threshold;
+pub(crate) fn contains_pixel(rgb: u32, black_threshold: u8) -> bool {
+    let red = ((rgb & 0x00ff0000) >> 16) < black_threshold as u32;
+    let green = ((rgb & 0x0000ff00) >> 8) < black_threshold as u32;
+    let blue = (rgb & 0x000000ff) < black_threshold as u32;
 
     (red && green) || (green && blue) || (red && blue)
 }
@@ -52,21 +47,6 @@ where
     target
 }
 
-pub(crate) fn create_copy<I, P>(image: &I) -> ImageBuffer<P, Vec<u8>>
-where
-    I: GenericImage<Pixel = P>,
-    P: Pixel<Subpixel = u8> + 'static,
-{
-    let (width, height) = image.dimensions();
-    let mut out = ImageBuffer::new(width, height);
-
-    for (x, y, p) in image.pixels() {
-        out.put_pixel(x, y, p)
-    }
-
-    out
-}
-
 pub(crate) fn create_empty_copy<I, P>(image: &I) -> ImageBuffer<P, Vec<u8>>
 where
     I: GenericImage<Pixel = P>,
@@ -86,8 +66,8 @@ where
 {
     image::imageops::unsharpen(
         img,
-        sigma.unwrap_or(UNSHARP_SIGMA),
-        threshold.unwrap_or(UNSHARP_THRESHOLD),
+        sigma.unwrap_or(PARAMETERS.unsharp_sigma),
+        threshold.unwrap_or(PARAMETERS.unsharp_threshold),
     )
 }
 
@@ -99,52 +79,48 @@ where
     image::imageops::crop_imm(img, rect.x, rect.y, rect.width, rect.height)
 }
 
-pub(crate) fn image_from_matrix(mx: ImgRef<bool>) -> RgbaImage {
-    let width = mx.width() as u32;
-    let height = mx.height() as u32;
+// pub(crate) fn image_from_matrix(mx: ImgRef<bool>) -> RgbaImage {
+//     let width = mx.width() as u32;
+//     let height = mx.height() as u32;
+//
+//     let mut b_image = ImageBuffer::new(width, height);
+//     for x in 0..width {
+//         for y in 0..height {
+//             if !mx[(x, y)] {
+//                 b_image.put_pixel(x, y, LUMAColors::WHITE)
+//             }
+//         }
+//     }
+//
+//     b_image
+// }
 
-    let mut b_image = ImageBuffer::new(width, height);
-    for x in 0..width {
-        for y in 0..height {
-            if !mx[(x, y)] {
-                b_image.put_pixel(x, y, RGBAColors::WHITE)
-            }
-        }
-    }
+// pub(crate) fn matrix_from_image(img: &RgbaImage) -> ImgVec<bool>
+// {
+//     let (width, height) = img.dimensions();
+//     let mut mx = ImgVec::new(vec![false; width as usize * height as usize], width as usize, height as usize);
+//
+//     for x in 0..width {
+//         for y in 0..height {
+//             let pixel = img.get_pixel(x, y);
+//             if pixel == &LUMAColors::BLACK {
+//                 mx[(x, y)] = true;
+//             }
+//         }
+//     }
+//
+//     mx
+// }
 
-    b_image
-}
-
-pub(crate) fn matrix_from_image(img: &RgbaImage) -> ImgVec<bool>
+// build 32x32 matrix from 32x32 image
+pub(crate) fn build_mx_from_32_image(image: &GrayImage) -> [u32; 32]
 {
-    let (width, height) = img.dimensions();
-    let mut mx = ImgVec::new(vec![false; width as usize * height as usize], width as usize, height as usize);
-
-    for x in 0..width {
-        for y in 0..height {
-            let pixel = img.get_pixel(x, y);
-            if pixel == &RGBAColors::BLACK {
-                mx[(x, y)] = true;
-            }
-        }
-    }
-
-    mx
-}
-
-pub(crate) fn build_matrix_32<I>(image: &I) -> [u8; 32]
-where
-    I: GenericImage<Pixel = Rgba<u8>>,
-{
-    let mut mx = [0u8; 32];
+    let mut mx = [0u32; 32];
 
     for y in 0..32 {
         for x in 0..32 {
-            if image.get_pixel(x, y) == RGBAColors::WHITE {
-                mx[y as usize] |= 1;
-            }
-            if x < 31 {
-                mx[y as usize] <<= 1;
+            if image.get_pixel(x, y) == &Luma(*named::WHITE.as_raw()) {
+                mx[y as usize].set_bit(x as usize, true);
             }
         }
     }
@@ -152,40 +128,34 @@ where
     mx
 }
 
-pub(crate) fn make_bw(image: &RgbaImage, black_threshold: u32) -> RgbaImage
+pub(crate) fn make_bw<I>(img: &I, black_threshold: Option<u8>) -> GrayImage
+where
+    I: GenericImage,
+    <I as GenericImageView>::Pixel: Pixel<Subpixel = u8> + 'static
 {
-    let mut bw_image = create_empty_copy(image);
+    let mut grayscale = image::imageops::grayscale(img);
 
-    for (x, y, p) in image.enumerate_pixels() {
-        let pixel = contains_pixel(u32::from_le_bytes(p.0), black_threshold);
-        if pixel {
-            bw_image.put_pixel(x, y, RGBAColors::BLACK);
-        } else {
-            bw_image.put_pixel(x, y, RGBAColors::WHITE);
-        }
-    }
+    dither(&mut grayscale, &BiLevel);
 
-    bw_image
+    grayscale
 }
 
-pub(crate) fn build_image(mx: &Vec<u32>) -> RgbaImage
+pub(crate) fn build_image_from_bit_mx(mx: &[u32; 32]) -> GrayImage
 {
     let mut image = ImageBuffer::new(32 ,32);
 
-    for x in 0..32 {
-        for y in 0..32 {
-            if matrix_util::is_bit_set(x, y, mx) {
-                image.put_pixel(x, y, RGBAColors::BLACK)
-            } else {
-                image.put_pixel(x, y, RGBAColors::WHITE)
-            }
+    for (x, y, p) in image.enumerate_pixels_mut() {
+        if matrix_util::is_bit_set(x, y, mx) {
+            *p = Luma(*named::BLACK.as_raw());
+        } else {
+            *p = Luma(*named::WHITE.as_raw())
         }
     }
 
     image
 }
 
-pub(crate) fn build_matrix(image: &RgbaImage) -> Vec<u32>
+pub(crate) fn build_bit_mx(image: &GrayImage) -> Vec<u32>
 {
     let (width, height) = image.dimensions();
     let mut mx = vec![0_u32; height as usize];
@@ -193,16 +163,13 @@ pub(crate) fn build_matrix(image: &RgbaImage) -> Vec<u32>
     for y in 0..height {
         for x in 0..width {
             let pixel = image.get_pixel(x, y);
-            if pixel == &RGBAColors::BLACK {
-                mx[y as usize] |= 1;
-            }
-            if x < width - 1 {
-                mx[y as usize] <<= 1;
+            if pixel == &Luma(*named::BLACK.as_raw()) {
+                mx[y as usize].set_bit(x as usize, true);
             }
         }
     }
 
-    mx.into()
+    mx
 }
 
 pub(crate) fn stretch<I, P>(img: &I, width: u32, height: u32) -> ImageBuffer<P, Vec<u8>>
@@ -215,7 +182,10 @@ where
     scaled_image
 }
 
-pub(crate) fn stretch_check_ratio(img: &RgbaImage, target_size: u32, final_size: u32) -> RgbaImage
+pub(crate) fn stretch_check_ratio<I>(img: &I, target_size: u32, final_size: u32) -> ImageBuffer<I::Pixel, Vec<u8>>
+where
+    I: ConvertBuffer<ImageBuffer<<I as GenericImageView>::Pixel, Vec<u8>>> + GenericImage,
+    <I as GenericImageView>::Pixel: Pixel<Subpixel = u8> + FromColor<Rgba<u8>> + 'static
 {
     let (width, height) = img.dimensions();
     let mut ratio = (width / height) as f32;
@@ -234,12 +204,15 @@ pub(crate) fn stretch_check_ratio(img: &RgbaImage, target_size: u32, final_size:
         target_width = target_min_dim;
     }
 
-    let stretched: RgbaImage = stretch(img, target_width, target_height);
+    let stretched = stretch(img, target_width, target_height);
 
     create_square_image(&stretched, final_size)
 }
 
-pub(crate) fn create_square_image(source_img: &RgbaImage, size: u32) -> RgbaImage
+pub(crate) fn create_square_image<I>(source_img: &I, size: u32) -> ImageBuffer<I::Pixel, Vec<u8>>
+where
+    I: ConvertBuffer<ImageBuffer<<I as GenericImageView>::Pixel, Vec<u8>>> + GenericImage,
+    <I as GenericImageView>::Pixel: Pixel<Subpixel = u8> + FromColor<Rgba<u8>> + 'static
 {
     let (width, height) = source_img.dimensions();
 
@@ -259,18 +232,21 @@ pub(crate) fn create_square_image(source_img: &RgbaImage, size: u32) -> RgbaImag
                 continue;
             }
             let pixel = source_img.get_pixel(x, y);
-            block_image.put_pixel(x, y, *pixel)
+            block_image.put_pixel(x, y, pixel)
         }
     }
 
     block_image
 }
 
-pub(crate) fn create_white_image(width: u32, height: u32) -> RgbaImage {
+pub(crate) fn create_white_image<P>(width: u32, height: u32) -> ImageBuffer<P, Vec<u8>>
+where
+    P: Pixel<Subpixel = u8> + FromColor<Rgba<u8>> + 'static
+{
     let mut image = ImageBuffer::new(width, height);
-    draw_filled_rect_mut(&mut image, Rect::at(0, 0).of_size(width, height), RGBAColors::WHITE);
+    draw_filled_rect_mut(&mut image, Rect::at(0, 0).of_size(width, height), Rgba(*named::WHITE.as_raw()));
 
-    image
+    image.convert()
 }
 
 pub(crate) fn scale(mut source_value: f32, min_source_value: f32, max_source_value: f32, target_1: f32, target_2: f32) -> Result<u32, KanjitomoError> {
@@ -289,8 +265,20 @@ pub(crate) fn scale(mut source_value: f32, min_source_value: f32, max_source_val
     Ok(res.round() as u32)
 }
 
-mod matrix_util {
-    use imgref::ImgRef;
+pub(crate) mod matrix_util {
+
+    pub(crate) fn move_matrix(mx: &mut [u32; 32], h: i32, v: i32) {
+        for y in 0_i32..mx.len() as i32 {
+            let new_y = y + v;
+            if new_y < 0 || new_y > 31 { continue ;}
+
+            if h >= 0 {
+                mx[new_y as usize] = mx[y as usize] >> h as u32
+            } else {
+                mx[new_y as usize] = mx[y as usize] << (-1 * h) as u32;
+            }
+        }
+    }
 
     pub(crate) fn is_bit_set(x: u32, y: u32, mx: &[u32]) -> bool {
         if x >= 32 || y >= 32 {
@@ -355,14 +343,14 @@ pub(crate) mod tests {
         image
     }
 
-    //#[test]
+    #[test]
     fn test_sharpen() {
         let image = get_image();
         log::debug!("sharpen image...");
         let mut sharpened = sharpen_image(&image, None, None);
         log::debug!("sharpened image");
         log::debug!("bw image...");
-        sharpened = make_bw(&sharpened, 135);
+        let bw = make_bw(&sharpened, None);
         log::debug!("bwed image");
         log::debug!("saving image...");
         sharpened.save(&PATH).unwrap();
@@ -373,11 +361,11 @@ pub(crate) mod tests {
     fn test_mx_output() {
         pretty_env_logger::try_init().unwrap_or(());
         let mut image = get_image().into_rgba();
-        image = sharpen_image(&image, None, None);
-        image = make_bw(&image, 135);
-        let mx = build_matrix(&image);
+        let image = sharpen_image(&image, None, None);
+        let image = make_bw(&image, None);
+        let mx = build_bit_mx(&image);
 
-        let image = build_image(mx.as_ref());
+        let image = build_image_from_bit_mx(mx.as_slice());
         image.save(&PATH).unwrap();
     }
 

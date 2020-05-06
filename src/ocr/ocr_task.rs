@@ -1,10 +1,10 @@
-use image::{GrayImage, RgbaImage, GenericImage, Pixel};
+use image::{GrayImage, RgbaImage, GenericImage, Pixel, DynamicImage};
 use super::OCRResult;
 
 #[derive(Debug, Clone)]
 pub(crate) struct OCRTask
 {
-    pub(crate) image: RgbaImage,
+    pub(crate) image: GrayImage,
     char_index: Option<u32>,
     results: Vec<OCRResult>,
     column_changed: bool,
@@ -14,7 +14,7 @@ impl OCRTask
 {
     pub(crate) fn new(image: RgbaImage) -> Self {
         Self {
-            image,
+            image: DynamicImage::ImageRgba8(image).to_luma(),
             char_index: None,
             results: vec![],
             column_changed: false

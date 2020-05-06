@@ -8,8 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering, AtomicU32};
 use rayon::{ThreadPool, ThreadPoolBuilder};
 use crossbeam::channel::{Sender, Receiver, unbounded};
 use crate::util::{sharpen_image, make_bw};
-
-const OCR_THREADS: usize = 8;
+use crate::PARAMETERS;
 
 #[derive(Debug)]
 pub(crate) struct OCRManager {
@@ -23,7 +22,7 @@ pub(crate) struct OCRManager {
 impl OCRManager {
     pub(crate) fn new() -> Self {
         let mut thread_pool = ThreadPoolBuilder::new()
-            .num_threads(OCR_THREADS)
+            .num_threads(PARAMETERS.ocr_threads)
             .thread_name(|idx| {
                 format!("OCRTask ({})", idx)
             })
@@ -49,7 +48,7 @@ impl OCRManager {
     fn install_threads(&mut self, res_s: Sender<OCRTask>, r: Receiver<OCRTask>) {
         let stop_flag = self.stop_flag.clone();
         self.thread_pool.install(move || {
-            for i in 0..OCR_THREADS {
+            for i in 0..PARAMETERS.ocr_threads {
                 let res_s = res_s.clone();
                 let r = r.clone();
                 let stop_flag = stop_flag.clone();
@@ -65,7 +64,7 @@ impl OCRManager {
                             log::trace!("got task in {:?}", thread::current().name());
                             let image = &task.image;
                             let sharpened = sharpen_image(image, None, None);
-                            let b_w = make_bw(&sharpened, 135);
+                            let b_w = make_bw(&sharpened, None);
                             task.image = b_w;
                             res_s.send(task).unwrap();
                             log::trace!("Sent result to receiver from {:?}", thread::current().name());
