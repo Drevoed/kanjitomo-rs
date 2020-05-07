@@ -29,7 +29,7 @@ pub struct Parameters {
    #[default = 140]
    pub pixel_rgba_threshold: u8,
    #[default = 3]
-   pub ocr_halo_size: u8,
+   pub ocr_halo_size: u32,
    #[default(_code = "Rgba([255, 0, 0, 255])")]
    pub ocr_target_halo_first_color: Rgba<u8>,
    #[default(_code = "Rgba([255, 175, 175, 255])")]

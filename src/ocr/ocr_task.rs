@@ -5,7 +5,7 @@ use super::OCRResult;
 pub(crate) struct OCRTask
 {
     pub(crate) image: GrayImage,
-    char_index: Option<u32>,
+    pub(crate) char_index: Option<u32>,
     results: Vec<OCRResult>,
     column_changed: bool,
 }

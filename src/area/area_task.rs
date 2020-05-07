@@ -8,15 +8,15 @@ use crate::traits::{Step, Task};
 use crate::error::KanjitomoError;
 
 
-#[derive(Debug, Default, Clone)]
-pub struct AreaTask<P: Pixel<Subpixel=u8>>
+#[derive(Debug, Clone)]
+pub struct AreaTask<P>
 where
-    P: Default
+    P: Pixel<Subpixel = u8> + 'static
 {
     width: u32,
     height: u32,
-    original_image: Option<ImageBuffer<P, Vec<u8>>>,
-    sharpened_image: Option<ImageBuffer<P, Vec<u8>>>,
+    original_image: ImageBuffer<P, Vec<u8>>,
+    sharpened_image: ImageBuffer<P, Vec<u8>>,
     inverted: Vec<Vec<bool>>,
     binary_image: Vec<Vec<bool>>,
     background_image: Vec<Vec<bool>>,
@@ -29,19 +29,19 @@ where
 
 impl<P> AreaTask<P>
 where
-    P: Pixel<Subpixel = u8> + Default + 'static,
+    P: Pixel<Subpixel = u8> + 'static,
 {
-    pub fn new(target: ImageBuffer<P, Vec<u8>>) -> Self {
-        let (width, height) = target.dimensions();
-        let sharpened_image = Some(sharpen_image(&target, None, None));
-        Self {
-            width,
-            height,
-            original_image: Some(target),
-            sharpened_image,
-            ..Default::default()
-        }
-    }
+    // pub fn new(target: ImageBuffer<P, Vec<u8>>) -> Self {
+    //     let (width, height) = target.dimensions();
+    //     let sharpened_image = sharpen_image(&target, None, None);
+    //     Self {
+    //         width,
+    //         height,
+    //         original_image: target,
+    //         sharpened_image,
+    //         ..Default::default()
+    //     }
+    // }
 
     pub(crate) fn get_subimages(&self, areas: Vec<Rect>) -> Vec<SubImage<ImageBuffer<P, Vec<u8>>>> {
         let mut subimages = vec![];
@@ -94,9 +94,29 @@ where
     }
 }
 
-pub(crate) struct AreaDetector<'a, P: Pixel<Subpixel = u8>>
+pub(crate) struct AreaDetector<'a, P>
 where
-    P: Default
+    P: Default + Pixel<Subpixel = u8> + 'static
 {
     task: &'a mut AreaTask<P>
+}
+
+impl<'a, P> AreaDetector<'a, P>
+where
+    P: Default + Pixel<Subpixel = u8> + 'static
+{
+    pub(crate) fn new(task: &'a mut AreaTask<P>) -> Self {
+        Self { task }
+    }
+
+
+}
+
+pub(crate) enum AreaTaskStep<'a, P>
+where
+    P: Default + Pixel<Subpixel = u8> + 'static
+{
+    SharpenImage(&'a mut AreaTask<P>),
+    CreateBinaryImage(&'a mut AreaTask<P>),
+    InvertImage()
 }

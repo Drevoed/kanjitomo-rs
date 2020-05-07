@@ -18,6 +18,10 @@ lazy_static! {
     pub static ref PARAMETERS: Parameters = Default::default();
 }
 
+pub struct KanjiTomo {
+
+}
+
 pub fn run_ocr(point: Point) {
 
 }

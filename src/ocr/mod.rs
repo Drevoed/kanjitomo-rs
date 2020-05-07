@@ -14,18 +14,18 @@ pub struct OCR {
 
 #[derive(Default, Clone, Debug)]
 pub(crate) struct TargetMatrix {
-    matrix: Vec<u8>,
+    matrix: [u32; 32],
     pixels: u32,
-    halo: Vec<Vec<u8>>,
+    halo: Vec<[u32; 32]>,
     char_index: u32,
     transform: Transformation,
 }
 
 impl TargetMatrix {
     pub(crate) fn new(
-        matrix: Vec<u8>,
+        matrix: [u32; 32],
         pixels: u32,
-        halo: Vec<Vec<u8>>,
+        halo: Vec<[u32; 32]>,
         char_index: u32,
         transform: Transformation
     ) -> Self {

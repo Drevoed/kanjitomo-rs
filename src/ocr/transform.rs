@@ -4,7 +4,7 @@ use crate::ocr::{Transformation, TargetMatrix};
 use crate::util::{sharpen_image, stretch, make_bw, build_mx_from_32_image, create_square_image, stretch_check_ratio};
 use image::{RgbaImage, GenericImage, Pixel, ImageBuffer, GenericImageView, Rgba, FromColor, GrayImage};
 use crate::PARAMETERS;
-use crate::util::matrix_util::move_matrix;
+use crate::util::matrix_util::{move_matrix, count_bits, build_mx_halo};
 use imageproc::geometric_transformations::translate;
 use image::buffer::ConvertBuffer;
 
@@ -47,15 +47,27 @@ impl<'a> Transform<'a> {
         targets
     }
 
-    // fn transform<I, P>(image: &I, parameters: Transformation) -> TargetMatrix
-    // where
-    //     I: GenericImage<Pixel = P>,
-    //     P: Pixel<Subpixel = u8> + 'static
-    // {
-    //
-    // }
+    fn transform<I>(&mut self, image: &I, parameters: Transformation) -> TargetMatrix
+    where
+        I: ConvertBuffer<ImageBuffer<<I as GenericImageView>::Pixel, Vec<u8>>> + GenericImage,
+        <I as GenericImageView>::Pixel: Pixel<Subpixel = u8> + FromColor<Rgba<u8>> + 'static
+    {
+        let mut mx = self.build_matrix(image, &parameters);
+        let halo = build_mx_halo(&mut mx, PARAMETERS.ocr_halo_size - 1);
+        let pixels = count_bits(&mx);
 
-    fn build_matrix<I, P>(&mut self, image: &I, parameters: &Transformation) -> [u32; 32]
+        let target = TargetMatrix::new(
+            mx.clone(),
+            pixels,
+            halo,
+            self.task.char_index.unwrap_or(0),
+            parameters
+        );
+
+        target
+    }
+
+    fn build_matrix<I>(&mut self, image: &I, parameters: &Transformation) -> [u32; 32]
     where
         I: ConvertBuffer<ImageBuffer<<I as GenericImageView>::Pixel, Vec<u8>>> + GenericImage,
         <I as GenericImageView>::Pixel: Pixel<Subpixel = u8> + FromColor<Rgba<u8>> + 'static
