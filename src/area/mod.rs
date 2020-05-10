@@ -2,9 +2,9 @@ mod area;
 mod area_task;
 mod column;
 
-pub use area::Area;
-pub use area_task::AreaTask;
-pub use column::Column;
+pub(crate) use area::Area;
+pub(crate) use area_task::AreaTask;
+pub(crate) use column::Column;
 use sealed::*;
 
 pub struct Point {

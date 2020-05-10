@@ -16,7 +16,7 @@ use imageproc::drawing::draw_filled_rect_mut;
 use crate::PARAMETERS;
 use crate::util::matrix_util::is_bit_set;
 use image::buffer::ConvertBuffer;
-use rulinalg::matrix::Matrix;
+use nalgebra::base::DMatrix;
 
 pub(crate) fn contains_pixel(rgb: u32, black_threshold: u8) -> bool {
     let red = ((rgb & 0x00ff0000) >> 16) < black_threshold as u32;
@@ -97,7 +97,7 @@ where
 //     b_image
 // }
 
-pub(crate) fn matrix_from_image(img: &GrayImage) -> Matrix<bool>
+pub(crate) fn matrix_from_image(img: &GrayImage) -> DMatrix<bool>
 {
     let (width, height) = img.dimensions();
 
@@ -109,11 +109,11 @@ pub(crate) fn matrix_from_image(img: &GrayImage) -> Matrix<bool>
         }
     }
 
-    Matrix::new(height as usize, width as usize, mx.into_iter().flatten().collect::<Vec<bool>>())
+    DMatrix::from_row_slice(height as usize, width as usize, &mx.into_iter().flatten().collect::<Vec<bool>>()[..])
 }
 
 // build 32x32 matrix from 32x32 image
-pub(crate) fn build_mx_from_32_image(image: &GrayImage) -> [u32; 32]
+pub(crate) fn build_bit_mx_from_32_image(image: &GrayImage) -> [u32; 32]
 {
     let mut mx = [0u32; 32];
 
@@ -152,7 +152,7 @@ pub(crate) fn build_image_from_32bit_mx(mx: &[u32; 32]) -> GrayImage
     let mut image = ImageBuffer::new(32 ,32);
 
     for (x, y, p) in image.enumerate_pixels_mut() {
-        if matrix_util::is_bit_set(x as i32, y as i32, mx) {
+        if matrix_util::is_bit_set(x, y, mx) {
             *p = Luma(*named::BLACK.as_raw());
         } else {
             *p = Luma(*named::WHITE.as_raw())
@@ -288,7 +288,7 @@ pub(crate) mod matrix_util {
         }
     }
 
-    pub(crate) fn is_bit_set(x: i32, y: i32, mx: &[u32]) -> bool {
+    pub(crate) fn is_bit_set(x: u32, y: u32, mx: &[u32]) -> bool {
         if x >= 32 || y >= 32 {
             false
         } else {
@@ -354,7 +354,7 @@ pub(crate) mod matrix_util {
         halo
     }
 
-    pub(crate) fn is_halo_bit(x: i32, y: i32, mx: &[u32; 32]) -> bool {
+    pub(crate) fn is_halo_bit(x: u32, y: u32, mx: &[u32; 32]) -> bool {
         if is_bit_set(x, y, mx) {
             return true;
         } else {
@@ -425,37 +425,14 @@ pub(crate) mod tests {
     use crate::util::char_util::{is_kanji, is_hiragana, is_katakana, is_kana};
 
     pub(crate) const PATH: &str = "C:\\Users\\vetro\\RustProjects\\kanjitomo-rs\\images_test\\image1.jpg";
+    pub(crate) const PATH_BLUR: &str = "C:\\Users\\vetro\\RustProjects\\kanjitomo-rs\\images_test\\image1_blur.jpg";
+    pub(crate) const PATH_SHARPENED: &str = "C:\\Users\\vetro\\RustProjects\\kanjitomo-rs\\images_test\\image1_sharpened.jpg";
 
     fn get_image() -> DynamicImage {
         println!("opening image...");
         let image = open(&PATH).unwrap();
         println!("opened image");
         image
-    }
-
-    #[test]
-    fn test_sharpen() {
-        let image = get_image().to_rgba();
-        log::debug!("sharpen image...");
-        let mut sharpened = image::imageops::blur(&image, 1.7);
-        log::debug!("sharpened image");
-        log::debug!("bw image...");
-        let bw = make_bw(&sharpened, None);
-        log::debug!("bwed image");
-        log::debug!("saving image...");
-        sharpened.save(&PATH).unwrap();
-        log::debug!("saved image");
-    }
-
-    #[test]
-    fn test_bool_mx() {
-        pretty_env_logger::try_init().unwrap_or(());
-        let image = get_image().to_rgba();
-        let bw = make_bw(&image, None);
-        let bw= stretch(&bw, 64, 64);
-        bw.save(&PATH).unwrap();
-        let mx = matrix_from_image(&bw);
-        log::debug!("\n{}", mx)
     }
 
     #[test]

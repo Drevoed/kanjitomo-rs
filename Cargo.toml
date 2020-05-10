@@ -23,7 +23,7 @@ crossbeam = "0.7.3"
 lazy_static = "1.4.0"
 smart-default = "0.6.0"
 bit = "0.1.1"
-rulinalg = "0.4.2"
+nalgebra = "0.21.0"
 
 [dev-dependencies]
 pretty_env_logger = "0.4.0"

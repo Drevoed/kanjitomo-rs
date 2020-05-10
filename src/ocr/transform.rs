@@ -1,7 +1,7 @@
 use crate::ocr::ocr_task::OCRTask;
 use std::collections::HashMap;
 use crate::ocr::{Transformation, TargetMatrix};
-use crate::util::{sharpen_image, stretch, make_bw, build_mx_from_32_image, create_square_image, stretch_check_ratio};
+use crate::util::{sharpen_image, stretch, make_bw, build_bit_mx_from_32_image, create_square_image, stretch_check_ratio};
 use image::{RgbaImage, GenericImage, Pixel, ImageBuffer, GenericImageView, Rgba, FromColor, GrayImage};
 use crate::PARAMETERS;
 use crate::util::matrix_util::{move_matrix, count_bits, build_mx_halo};
@@ -95,7 +95,7 @@ impl<'a> Transform<'a> {
             let grayscale = stretch(image, new_width, new_height);
             let square_grayscale = create_square_image(&grayscale, 32);
             let square_bw = make_bw(&square_grayscale, None);
-            let stretched = build_mx_from_32_image(&square_bw);
+            let stretched = build_bit_mx_from_32_image(&square_bw);
             self.stretched_matrices.insert(stretch_amount, stretched.clone());
             stretched
         }

@@ -8,22 +8,27 @@ mod parameters;
 
 use crate::area::Point;
 use num_traits::Num;
-use image::math::Rect;
 use serde::{Serialize, Deserialize};
 use parameters::Parameters;
 use lazy_static::lazy_static;
 use crate::util::is_kanji;
+use crate::ocr::OCRManager;
 
 lazy_static! {
     pub static ref PARAMETERS: Parameters = Default::default();
 }
 
 pub struct KanjiTomo {
-
+    ocr: OCRManager,
 }
 
-pub fn run_ocr(point: Point) {
+impl KanjiTomo {
+    pub fn new() {
 
+    }
+    pub fn run_ocr(&mut self, point: Point) {
+
+    }
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -86,11 +91,12 @@ pub struct Word {
 
 impl Word {
     pub fn new(kanji: String, kana: String, description: String, name: bool) -> Self {
-        let kanji_count = kanji.chars().fold(0, |mut i, c| {
+        let kanji_count = kanji.chars().fold(0, |i, c| {
             if is_kanji(c) {
-                i += 1
+                i + 1
+            } else {
+                i
             }
-            i
         });
 
         let common = description.contains("(P)");
@@ -105,13 +111,32 @@ impl Word {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default, Serialize)]
+pub struct Rect {
+    /// The x coordinate of the top left corner.
+    pub x: u32,
+    /// The y coordinate of the top left corner.
+    pub y: u32,
+    /// The rectangle's width.
+    pub width: u32,
+    /// The rectangle's height.
+    pub height: u32,
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::PARAMETERS;
+    use crate::{PARAMETERS, Word};
     use crate::parameters::Parameters;
 
     #[test]
     fn test_static_parameters() {
         assert_eq!(*PARAMETERS, Parameters::default())
+    }
+
+    #[test]
+    fn test_kanji_count() {
+        let word = Word::new("腹切り".to_owned(), "".to_owned(), "".to_owned(), false);
+
+        assert_eq!(2, word.kanji_count)
     }
 }

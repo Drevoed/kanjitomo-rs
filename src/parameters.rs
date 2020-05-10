@@ -28,6 +28,16 @@ pub struct Parameters {
    pub unsharp_threshold: i32,
    #[default = 140]
    pub pixel_rgba_threshold: u8,
+   #[default = false]
+   pub fixed_black_level: bool,
+   #[default = 0]
+   pub fixed_black_level_red: u8,
+   #[default = 0]
+   pub fixed_black_level_green: u8,
+   #[default = 0]
+   pub fixed_black_level_blue: u8,
+   #[default = 45]
+   pub fixed_black_level_range: u32,
    #[default = 3]
    pub ocr_halo_size: u32,
    #[default(_code = "Rgba([255, 0, 0, 255])")]

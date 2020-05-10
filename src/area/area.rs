@@ -13,9 +13,9 @@ pub struct Area {
     pixels: u32,
     pub(crate) punctuation: bool,
     changed: bool,
-    pub splitted: bool,
-    pub min_rgb: u32,
-    pub column: Weak<RefCell<Column>>,
+    pub(crate) splitted: bool,
+    pub(crate) min_rgb: u32,
+    pub(crate) column: Weak<RefCell<Column>>,
     remove: bool,
     source_areas: Vec<Area>,
 }
